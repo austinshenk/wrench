@@ -1,8 +1,9 @@
 local supported_nodes = {
-["default:chest"] = {name="wrench:default_chest", lists={"main"}, meta={}},
-["default:furnace"] = {name="wrench:default_furnace", lists={"fuel", "src", "dst"}, meta={{}}},
-["default:furnace_active"] = {name="wrench:default_furnace", lists={"fuel", "src", "dst"}},
-["default:sign_wall"] = {name="wrench:default_sing_wall", lists={}},
+["default:chest"] = {name="wrench:default_chest", lists={"main"}, metas={}},
+["default:chest_locked"] = {name="wrench:default_chest_locked", lists={"main"}, metas={{string="owner"},{string="infotext"}}},
+["default:furnace"] = {name="wrench:default_furnace", lists={"fuel", "src", "dst"}, metas={{string="infotext"},{float="fuel_totaltime"},{float="fuel_time"},{float="src_totaltime"},{float="src_time"}}},
+["default:furnace_active"] = {name="wrench:default_furnace", lists={"fuel", "src", "dst"}, metas={{string="infotext"},{float="fuel_totaltime"},{float="fuel_time"},{float="src_totaltime"},{float="src_time"}}},
+["default:sign_wall"] = {name="wrench:default_sing_wall", lists={}, metas={{string="infotext"},{string="text"}}},
 ["technic:iron_chest"] = {name="wrench:technic_iron_chest", lists={"main"}},
 ["technic:iron_locked_chest"] = {name="wrench:technic_iron_locked_chest", lists={"main"}},
 ["technic:copper_chest"] = {name="wrench:technic_copper_chest", lists={"main"}},
@@ -72,16 +73,32 @@ for name,info in pairs(supported_nodes) do
 			local node = minetest.get_node(pos)
 			local item = convert_to_original_name(itemstack:get_name())
 			minetest.set_node(pos, {name = item, param2 = node.param2})
-			local inv = minetest.get_meta(pos):get_inventory()
-			local data = minetest.deserialize(itemstack:get_metadata())
-			for listname,list in pairs(data) do
-				inv:set_list(listname, list)
-			end
+			minetest.after(0.5, function(pos, placer, itemstack)
+				local meta = minetest.get_meta(pos)
+				local inv = meta:get_inventory()
+				local data = minetest.deserialize(itemstack:get_metadata())
+				local lists = data.lists
+				for listname,list in pairs(lists) do
+					inv:set_list(listname, list)
+				end
+				local metas = data.metas
+				for i=1,#metas,1 do
+					local temp = metas[i]
+					if temp.string ~= nil then
+						meta:set_string(temp.string, temp.value)
+					end
+					if temp.int ~= nil then
+						meta:set_int(temp.int, temp.value)
+					end
+					if temp.float ~= nil then
+						meta:set_float(temp.float, temp.value)
+					end
+				end
+			end, pos, placer, itemstack)
 		end
 		minetest.register_node(info.name, newdef)
 	end
 end
-
 
 minetest.register_tool("wrench:wrench", {
 	description = "Wrench",
@@ -103,18 +120,23 @@ minetest.register_tool("wrench:wrench", {
 		local name = minetest.get_node(pos).name
 		local support = supported_nodes[name]
 		if support == nil then return end
-		if name:find("_locked_chest") ~= nil then
-			if not has_locked_chest_privilege(meta, placer) then
-				minetest.log("action", player:get_player_name()..
-				" tried to destroy a locked chest belonging to "..
-				meta:get_string("owner").." at "..
-				minetest.pos_to_string(pos))
-				return
+		local meta = minetest.get_meta(pos)
+		if name:find("_locked") ~= nil then
+			if meta:get_string("owner") ~= nil then
+				if meta:get_string("owner") ~= placer:get_player_name() then
+					minetest.log("action", placer:get_player_name()..
+					" tried to destroy a locked chest belonging to "..
+					meta:get_string("owner").." at "..
+					minetest.pos_to_string(pos))
+					return
+				end
 			end
 		end
+		
 		local lists = support.lists
-		local inv = minetest.get_meta(pos):get_inventory()
+		local inv = meta:get_inventory()
 		local empty = true
+		local metadata_str = {}
 		local list_str = {}
 		for i=1,#lists,1 do
 			if not inv:is_empty(lists[i]) then empty = false end
@@ -124,16 +146,34 @@ minetest.register_tool("wrench:wrench", {
 			end
 			list_str[lists[i]] = list
 		end
+		metadata_str.lists = list_str
+		
+		local metas = support.metas
+		local meta_str = {}
+		for i=1,#metas,1 do
+			local temp = metas[i]
+			if temp.string ~= nil then
+				meta_str[i] = {string = temp.string, value = meta:get_string(temp.string)}
+			end
+			if temp.int ~= nil then
+				meta_str[i] = {int = temp.int, value = meta:get_int(temp.int)}
+			end
+			if temp.float ~= nil then
+				meta_str[i] = {float = temp.float, value = meta:get_float(temp.float)}
+			end
+		end
+		metadata_str.metas = meta_str
+		
 		inv = placer:get_inventory()
 		local stack = {name = name}
 		if inv:room_for_item("main", stack) then
 			minetest.remove_node(pos)
 			itemstack:add_wear(65535/20)
-			if empty then
+			if empty and #lists > 0 then
 				inv:add_item("main", stack)
 			else
 				stack.name = supported_nodes[name].name
-				stack.metadata = minetest.serialize(list_str)
+				stack.metadata = minetest.serialize(metadata_str)
 				inv:add_item("main", stack)
 			end
 		end
