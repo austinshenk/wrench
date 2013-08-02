@@ -197,8 +197,8 @@ minetest.register_tool("wrench:wrench", {
 minetest.register_craft({
 	output = "wrench:wrench",
 	recipe = {
-	{"default:iron_lump","","default:iron_lump"},
-	{"","default:iron_lump",""},
-	{"","default:iron_lump",""},
+	{"default:steel_ingot","","default:steel_ingot"},
+	{"","default:steel_ingot",""},
+	{"","default:steel_ingot",""},
 	},
 })
