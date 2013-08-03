@@ -16,7 +16,7 @@
 			<temporary node name> - can be anything as long as it is unique
 			[optional] - parameters do not have to be included
 			owner_protection - nodes that are protected by owner requirements (Ex. locked chests)
-			store_meta_always - when nodes are broken this ensures metadata is always stored (Ex. active state for machines)
+			store_meta_always - when nodes are broken this ensures metadata and inventory is always stored (Ex. active state for machines)
 --]]
 local supported_nodes = {
 ["default:chest"] = {
@@ -100,24 +100,6 @@ local supported_nodes = {
 	lists={"main"},
 	metas={{string="infotext"},{string="owner"},{string="formspec"}},
 	owner_protection=1,
-},
-["technic:battery_box"] = {
-	name="wrench:technic_battery_box",
-	lists={"src", "dst"},
-	metas={{string="infotext"},{string="formspec"},{int="LV_EU_demand"},{int="LV_EU_supply"},{int="LV_EU_input"},{int="internal_EU_charge"},{float="last_side_shown"}},
-	store_meta_always=1,
-},
-["technic:mv_battery_box"] = {
-	name="wrench:technic_mv_battery_box",
-	lists={"src", "dst"},
-	metas={{string="infotext"},{string="formspec"},{int="MV_EU_demand"},{int="MV_EU_supply"},{int="MV_EU_input"},{int="internal_EU_charge"},{float="last_side_shown"}},
-	store_meta_always=1,
-},
-["technic:hv_battery_box"] = {
-	name="wrench:technic_hv_battery_box",
-	lists={"src", "dst"},
-	metas={{string="infotext"},{string="formspec"},{int="HV_EU_demand"},{int="HV_EU_supply"},{int="HV_EU_input"},{int="internal_EU_charge"},{float="last_side_shown"}},
-	store_meta_always=1,
 },
 ["technic:electric_furnace"] = {
 	name="wrench:technic_electric_furnace",
@@ -254,8 +236,38 @@ local chest_mark_colors = {
     {'','None'}
 }
 for i=1,15,1 do
-	supported_nodes["technic:gold_chest"..chest_mark_colors[i][1]] = {name="wrench:technic_gold_chest"..chest_mark_colors[i][1], lists={"main"}, metas={{string="infotext"},{string="formspec"}}}
-	supported_nodes["technic:gold_locked_chest"..chest_mark_colors[i][1]] = {name="wrench:technic_gold_locked_chest"..chest_mark_colors[i][1], lists={"main"}, metas={{string="infotext"},{string="owner"},{string="formspec"}}, owner_protection=1,}
+	supported_nodes["technic:gold_chest"..chest_mark_colors[i][1]] = {
+		name="wrench:technic_gold_chest"..chest_mark_colors[i][1],
+		lists={"main"},
+		metas={{string="infotext"},{string="formspec"}},
+	}
+	supported_nodes["technic:gold_locked_chest"..chest_mark_colors[i][1]] = {
+		name="wrench:technic_gold_locked_chest"..chest_mark_colors[i][1],
+		lists={"main"},
+		metas={{string="infotext"},{string="owner"},{string="formspec"}},
+		owner_protection=1,
+	}
+end
+for i=0,8,1 do
+	if i==0 then i="" end
+	supported_nodes["technic:battery_box"..i] = {
+		name="wrench:technic_battery_box"..i,
+		lists={"src", "dst"},
+		metas={{string="infotext"},{string="formspec"},{int="LV_EU_demand"},{int="LV_EU_supply"},{int="LV_EU_input"},{int="internal_EU_charge"},{float="last_side_shown"}},
+		store_meta_always=1,
+	}
+	supported_nodes["technic:mv_battery_box"..i] = {
+		name="wrench:technic_mv_battery_box"..i,
+		lists={"src", "dst"},
+		metas={{string="infotext"},{string="formspec"},{int="MV_EU_demand"},{int="MV_EU_supply"},{int="MV_EU_input"},{int="internal_EU_charge"},{float="last_side_shown"}},
+		store_meta_always=1,
+	}
+	supported_nodes["technic:hv_battery_box"..i] = {
+		name="wrench:technic_hv_battery_box"..i,
+		lists={"src", "dst"},
+		metas={{string="infotext"},{string="formspec"},{int="HV_EU_demand"},{int="HV_EU_supply"},{int="HV_EU_input"},{int="internal_EU_charge"},{float="last_side_shown"}},
+		store_meta_always=1,
+	}
 end
 
 local function convert_to_original_name(name)
@@ -281,7 +293,8 @@ for name,info in pairs(supported_nodes) do
 			minetest.set_node(pos, {name = convert_to_original_name(itemstack:get_name()),
 												param2 = minetest.get_node(pos).param2})
 			minetest.after(0.5, function(pos, placer, itemstack)
-				local inv = minetest.get_meta(pos):get_inventory()
+				local meta = minetest.get_meta(pos)
+				local inv = meta:get_inventory()
 				local data = minetest.deserialize(itemstack:get_metadata())
 				local lists = data.lists
 				for listname,list in pairs(lists) do
